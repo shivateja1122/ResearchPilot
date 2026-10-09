@@ -1,0 +1,14 @@
+# Environments & Secrets
+.env
+*.env
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Streamlit
+.streamlit/
