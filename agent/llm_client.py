@@ -33,7 +33,7 @@ class LLMClient:
             if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
                 self.provider = self.provider or "gemini"
                 self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-                self.model_name = self.model_name or "gemini-2.5-flash"
+                self.model_name = self.model_name or "gemini-3.8-flash"
             elif os.getenv("OPENAI_API_KEY"):
                 self.provider = self.provider or "openai"
                 self.api_key = os.getenv("OPENAI_API_KEY")
@@ -52,15 +52,19 @@ class LLMClient:
         if self.provider == "gemini" and self.api_key:
             try:
                 from google import genai
-                client = genai.Client(api_key=self.api_key)
+                from google.genai import types
+                client = genai.Client(
+                    api_key=self.api_key,
+                    http_options=types.HttpOptions(timeout=10000)
+                )
                 response = client.models.generate_content(
-                    model=self.model_name or "gemini-2.5-flash",
+                    model=self.model_name or "gemini-3.8-flash",
                     contents=f"{system_prompt}\n\n{prompt}" if system_prompt else prompt,
                 )
                 if response and response.text:
                     return response.text
             except Exception as e:
-                # Log or fallback
+                # Fallback smoothly to heuristic if rate-limited or error
                 pass
 
         if self.provider == "openai" and self.api_key:

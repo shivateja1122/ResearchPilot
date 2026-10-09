@@ -38,6 +38,17 @@ class PageExtractor:
                 "error_message": "Invalid or missing URL scheme."
             }
 
+        # 1. Attempt Jina Reader if READER_API_KEY is configured
+        import os
+        reader_key = os.getenv("READER_API_KEY")
+        if reader_key:
+            try:
+                jina_result = self._extract_jina(url, reader_key)
+                if jina_result and jina_result.get("status") == "success":
+                    return jina_result
+            except Exception:
+                pass
+
         try:
             response = requests.get(
                 url,
@@ -134,3 +145,32 @@ class PageExtractor:
                 "status": "failed",
                 "error_message": f"Extraction error: {str(e)}"
             }
+
+    def _extract_jina(self, url: str, api_key: str) -> Optional[Dict[str, Any]]:
+        jina_url = f"https://r.jina.ai/{url}"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "text/markdown",
+            "X-Timeout": str(self.timeout)
+        }
+        resp = requests.get(jina_url, headers=headers, timeout=self.timeout)
+        if resp.status_code == 200 and resp.text:
+            text = resp.text
+            # Extract title if present in Jina output (e.g. Title: ...)
+            title = ""
+            title_match = re.search(r"Title:\s*(.+)", text)
+            if title_match:
+                title = title_match.group(1).strip()
+            
+            clean_content = text
+            if len(clean_content) > self.max_content_length:
+                clean_content = clean_content[:self.max_content_length] + "\n...[truncated for length]"
+
+            return {
+                "url": url,
+                "title": title or "Web Article",
+                "content": clean_content,
+                "status": "success",
+                "error_message": None
+            }
+        return None

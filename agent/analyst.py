@@ -9,6 +9,8 @@ from agent.llm_client import LLMClient
 class ExtractedClaimItem(BaseModel):
     claim_text: str = Field(description="A concise factual claim extracted from the source content")
     supporting_excerpt: str = Field(description="The exact or near-exact excerpt from the source text that supports this claim")
+    status: Optional[str] = Field(default="supported", description="'supported', 'partially_supported', 'contradicted', or 'unverified'")
+    reason: Optional[str] = Field(default="Substantiated by retrieved excerpt.", description="Explanation of verification status")
 
 
 class ClaimExtractionResult(BaseModel):
@@ -28,44 +30,72 @@ class ResearchAnalyst:
     def __init__(self, llm_client: Optional[LLMClient] = None):
         self.llm = llm_client or LLMClient()
 
-    def extract_claims(self, question: ResearchQuestion, source: Source) -> List[Tuple[str, str]]:
+    def extract_claims_with_verification(
+        self, question: ResearchQuestion, source: Source
+    ) -> List[Tuple[str, str, VerificationStatus, str]]:
         """
-        Extracts factual claims and supporting excerpts from the source.
-        Returns list of tuples: [(claim_text, supporting_excerpt)]
+        Extracts factual claims and performs immediate verification in a single pass.
+        Returns list of (claim_text, supporting_excerpt, verification_status, reason).
         """
         content_to_analyze = source.extracted_content if source.extracted_content else source.snippet
         if not content_to_analyze:
             return []
 
-        # Limit context to avoid token bloat
         context_sample = content_to_analyze[:3500]
 
         prompt = (
             f"Research Subquestion: {question.question_text}\n"
             f"Source Title: {source.title}\n"
             f"Source Content:\n{context_sample}\n\n"
-            f"Extract 1 to 3 distinct, verifiable factual claims from this text that help answer the research subquestion. "
-            f"For each claim, copy the exact or near-exact supporting excerpt from the text."
+            f"Extract 1 to 2 distinct, verifiable factual claims from this text answering the subquestion. "
+            f"For each claim, provide:\n"
+            f"1. claim_text\n"
+            f"2. supporting_excerpt (exact passage)\n"
+            f"3. status ('supported', 'partially_supported', 'contradicted', or 'unverified')\n"
+            f"4. reason (short verification explanation)"
         )
         system_prompt = (
-            "You are an evidence extraction analyst. Extract only factual statements directly present in the source text. "
-            "Do NOT hallucinate or extrapolate beyond the provided text."
+            "You are a factual claim auditor. Extract only claims grounded in the text and assign strict status."
         )
 
         try:
             result = self.llm.generate_json(prompt, system_prompt, ClaimExtractionResult)
             if result and result.claims:
-                claims = []
+                verified_items = []
                 for item in result.claims:
                     if item.claim_text and item.supporting_excerpt:
-                        claims.append((item.claim_text.strip(), item.supporting_excerpt.strip()))
-                if claims:
-                    return claims
+                        stat = VerificationStatus.SUPPORTED
+                        raw_status = (item.status or "supported").lower().replace("-", "_").strip()
+                        for member in VerificationStatus:
+                            if member.value == raw_status:
+                                stat = member
+                                break
+                        verified_items.append((
+                            item.claim_text.strip(),
+                            item.supporting_excerpt.strip(),
+                            stat,
+                            item.reason or "Audited against source passage."
+                        ))
+                if verified_items:
+                    return verified_items
         except Exception:
             pass
 
-        # Robust heuristic fallback claim extraction
-        return self._heuristic_extract_claims(question.question_text, content_to_analyze)
+        # Heuristic fallback
+        raw_claims = self._heuristic_extract_claims(question.question_text, content_to_analyze)
+        res = []
+        for c_text, ex_text in raw_claims:
+            st_val, r_val = self._heuristic_verify(c_text, ex_text)
+            res.append((c_text, ex_text, st_val, r_val))
+        return res
+
+    def extract_claims(self, question: ResearchQuestion, source: Source) -> List[Tuple[str, str]]:
+        """
+        Extracts factual claims and supporting excerpts from the source.
+        Returns list of tuples: [(claim_text, supporting_excerpt)]
+        """
+        items = self.extract_claims_with_verification(question, source)
+        return [(c, e) for c, e, _, _ in items]
 
     def verify_claim(self, claim_text: str, supporting_excerpt: str) -> Tuple[VerificationStatus, str]:
         """

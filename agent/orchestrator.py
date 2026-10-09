@@ -105,9 +105,8 @@ class ResearchOrchestrator:
                 new_sources_count += 1
 
                 # 4. Evidence Extraction & Verification (FR-03)
-                claims = self.analyst.extract_claims(subq, source)
-                for claim_text, excerpt in claims:
-                    ver_status, reason = self.analyst.verify_claim(claim_text, excerpt)
+                verified_claims = self.analyst.extract_claims_with_verification(subq, source)
+                for claim_text, excerpt, ver_status, reason in verified_claims:
                     self.store.add_evidence(
                         claim_text=claim_text,
                         question_id=subq.question_id,
@@ -269,9 +268,8 @@ class ResearchOrchestrator:
                 new_sources_count += 1
 
                 # Extract and verify new claims
-                claims = self.analyst.extract_claims(subq, source)
-                for claim_text, excerpt in claims:
-                    ver_status, reason = self.analyst.verify_claim(claim_text, excerpt)
+                verified_claims = self.analyst.extract_claims_with_verification(subq, source)
+                for claim_text, excerpt, ver_status, reason in verified_claims:
                     self.store.add_evidence(
                         claim_text=claim_text,
                         question_id=subq.question_id,

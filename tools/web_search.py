@@ -33,7 +33,17 @@ class WebSearchTool:
         if not clean_query:
             return []
 
-        # 1. Attempt live search via DuckDuckGo (ddgs)
+        # 1. Attempt Tavily Search if API key is provided
+        tavily_key = os.getenv("TAVILY_API_KEY")
+        if tavily_key:
+            try:
+                tavily_results = self._search_tavily(clean_query, limit, tavily_key)
+                if tavily_results:
+                    return tavily_results
+            except Exception:
+                pass
+
+        # 2. Attempt live search via DuckDuckGo (ddgs)
         if DDGS_AVAILABLE:
             try:
                 results = self._search_duckduckgo(clean_query, limit)
@@ -43,8 +53,36 @@ class WebSearchTool:
                 # Log and proceed to fallback
                 pass
 
-        # 2. Resilient simulated search fallback for hermetic tests or offline demo mode
+        # 3. Resilient simulated search fallback for hermetic tests or offline demo mode
         return self._search_fallback(clean_query, limit)
+
+    def _search_tavily(self, query: str, limit: int, api_key: str) -> List[Dict[str, Any]]:
+        import requests
+        response = requests.post(
+            "https://api.tavily.com/search",
+            json={
+                "api_key": api_key,
+                "query": query,
+                "max_results": limit,
+                "include_raw_content": False
+            },
+            timeout=self.timeout
+        )
+        if response.status_code == 200:
+            data = response.json()
+            results = []
+            for item in data.get("results", []):
+                url = item.get("url") or ""
+                title = item.get("title") or ""
+                snippet = item.get("content") or ""
+                if url:
+                    results.append({
+                        "title": title,
+                        "url": url,
+                        "snippet": snippet
+                    })
+            return results
+        return []
 
     def _search_duckduckgo(self, query: str, limit: int) -> List[Dict[str, Any]]:
         results = []

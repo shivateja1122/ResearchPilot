@@ -111,6 +111,17 @@ with st.sidebar:
     st.caption("Evidence-Driven Autonomous Research Agent")
     st.markdown("---")
 
+    st.subheader("🔌 Connected Services")
+    has_gemini = bool(os.getenv("GEMINI_API_KEY"))
+    has_tavily = bool(os.getenv("TAVILY_API_KEY"))
+    has_jina = bool(os.getenv("READER_API_KEY"))
+
+    col_s1, col_s2 = st.columns([1, 1])
+    st.markdown(f"{'🟢' if has_gemini else '⚪'} **LLM:** {'Gemini 3.8 Flash' if has_gemini else 'Heuristic / Local'}")
+    st.markdown(f"{'🟢' if has_tavily else '⚪'} **Search:** {'Tavily AI Search' if has_tavily else 'DuckDuckGo'}")
+    st.markdown(f"{'🟢' if has_jina else '⚪'} **Reader:** {'Jina Reader (Markdown)' if has_jina else 'BeautifulSoup'}")
+
+    st.markdown("---")
     st.subheader("⚙️ Agent & LLM Settings")
     llm_provider = st.selectbox(
         "LLM Provider",
@@ -120,23 +131,24 @@ with st.sidebar:
     )
 
     api_key_input = st.text_input(
-        "API Key (Optional)",
+        "API Key (Optional override)",
         type="password",
-        value=os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY") or "",
-        help="Google Gemini or OpenAI API Key. If empty, uses intelligent heuristic research reasoning."
+        value="",
+        placeholder="Loaded from .env" if (has_gemini or has_tavily) else "Enter key...",
+        help="Google Gemini or OpenAI API Key override."
     )
 
     custom_model = st.text_input(
         "Custom Model Name (Optional)",
-        value="",
-        placeholder="e.g. gemini-2.5-flash or gpt-4o-mini"
+        value="gemini-3.8-flash" if has_gemini else "",
+        placeholder="e.g. gemini-3.8-flash or gpt-4o-mini"
     )
 
     st.markdown("---")
     st.subheader("🎯 Research Budget Limits")
     max_rounds = st.slider("Max Research Rounds", min_value=1, max_value=3, value=2, help="Round 1 = Initial search. Round 2 = Adaptive gap resolution.")
     max_follow_ups = st.slider("Max Follow-Up Queries", min_value=1, max_value=6, value=4, help="Budget limit for targeted follow-up searches in Round 2.")
-    timeout_sec = st.slider("Search/Extraction Timeout (s)", min_value=5, max_value=20, value=8)
+    timeout_sec = st.slider("Search/Extraction Timeout (s)", min_value=5, max_value=20, value=10)
 
     st.markdown("---")
     if st.button("🔄 Reset / Clear Session", use_container_width=True):
