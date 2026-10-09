@@ -184,3 +184,92 @@ def test_fr06_structured_report_generation():
     assert "## 7. Limitations and Unresolved Questions" in md
     assert "## 8. Research Audit & Budget Summary" in md
     assert "## 9. References" in md
+
+
+def test_page_extractor_sanitization_and_error_detection():
+    """
+    Verifies that:
+    1. Jina Reader metadata headers and navigation links are stripped.
+    2. 403 Forbidden / Access Denied error pages are flagged as failures rather than valid content.
+    """
+    extractor = PageExtractor()
+
+    # Case 1: 403 Forbidden error page
+    error_raw = (
+        "Title: Access Denied\n"
+        "URL Source: https://www.mckinsey.com/test\n"
+        "Warning: Target URL returned error 403: Forbidden\n\n"
+        "You don't have permission to access this server.\n"
+    )
+    title, body, status, err = extractor._sanitize_and_validate(error_raw, "Fallback")
+    assert status == "failed"
+    assert "403" in err or "access denied" in err.lower()
+    assert body == ""
+
+    # Case 2: Jina headers + navigation noise + real article text
+    dirty_content = (
+        "Title: Generative AI in Healthcare (2026): Trends, Benefits, Challenges\n"
+        "URL Source: https://www.example.com/blog/generative-ai\n"
+        "Published Time: 2026-05-12\n"
+        "Markdown Content:\n"
+        "[Skip to navigation]\n"
+        "[Skip to main content]\n"
+        "# Trending Tickers\n"
+        "SPCX 160.57 (-4.19%)\n"
+        "October Prime Day deals are almost gone\n\n"
+        "Generative artificial intelligence is transforming clinical diagnostics and automated documentation.\n"
+        "Hospitals adopting clinical LLMs report measurable reductions in administrative burnout and billing errors.\n"
+    )
+    title, clean_body, status, err = extractor._sanitize_and_validate(dirty_content, "Fallback")
+    assert status == "success"
+    assert "Title:" not in clean_body
+    assert "URL Source:" not in clean_body
+    assert "Markdown Content:" not in clean_body
+    assert "Skip to navigation" not in clean_body
+    assert "Trending Tickers" not in clean_body
+    assert "SPCX" not in clean_body
+    assert "Prime Day" not in clean_body
+    assert "Generative artificial intelligence is transforming clinical diagnostics" in clean_body
+
+
+def test_analyst_noise_rejection_and_relevance():
+    """
+    Verifies that:
+    1. Off-topic noise (Delta Airlines, 403 Forbidden, Jina metadata) is flagged as noise.
+    2. Verification classifies noise claims as UNVERIFIED rather than SUPPORTED.
+    3. Claim extraction only extracts relevant sentences answering the subquestion.
+    """
+    analyst = ResearchAnalyst()
+
+    # Noise detection check
+    assert analyst.is_noise("Title: Generative AI in Healthcare")
+    assert analyst.is_noise("URL Source: https://finance.yahoo.com")
+    assert analyst.is_noise("Delta's Q3 results missed expectations Friday as higher fuel prices outweighed premium strength.")
+    assert analyst.is_noise("Warning: Target URL returned error 403: Forbidden")
+    assert not analyst.is_noise("Clinical generative AI significantly reduces documentation time for hospital physicians.")
+
+    # Verification of noise claim must be UNVERIFIED
+    noise_claim = "Delta's Q3 results missed expectations Friday as higher fuel prices outweighed premium strength."
+    noise_excerpt = "Delta's Q3 results missed expectations Friday as higher fuel prices outweighed premium strength."
+    stat, reason = analyst.verify_claim(noise_claim, noise_excerpt)
+    assert stat == VerificationStatus.UNVERIFIED
+    assert "boilerplate" in reason.lower() or "scraping" in reason.lower()
+
+    # Extraction with relevance gating
+    q = ResearchQuestion(
+        question_id="Q1",
+        question_text="What are the clinical and operational benefits of generative AI in healthcare?",
+        dimension="benefits"
+    )
+    mixed_content = (
+        "Trending Tickers: SPCX 160.57. Delta's Q3 results missed expectations due to higher fuel prices.\n"
+        "Clinical generative AI automates discharge summaries and reduces physician documentation overhead by 40%.\n"
+        "Shopping guides for October Prime Day feature top tech deals.\n"
+    )
+    extracted = analyst._heuristic_extract_claims(q.question_text, mixed_content)
+    assert len(extracted) >= 1
+    # Ensure extracted claim is the clinical AI sentence, not Delta Airlines or Prime Day
+    claim_text = extracted[0][0]
+    assert "generative ai" in claim_text.lower() or "clinical" in claim_text.lower()
+    assert "delta" not in claim_text.lower()
+    assert "prime day" not in claim_text.lower()

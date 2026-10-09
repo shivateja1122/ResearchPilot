@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
@@ -205,8 +206,9 @@ class ReportGenerator:
         md.append("| Claim ID | Verification Status | Claim Text | Cited Sources | Supporting Excerpt |")
         md.append("|:---|:---|:---|:---|:---|")
         for ev in evidence:
-            clean_claim = ev.claim_text.replace("|", "\\|")
-            clean_excerpt = (ev.supporting_excerpts[0].replace("|", "\\|") if ev.supporting_excerpts else "None")[:150] + "..."
+            clean_claim = re.sub(r"\s+", " ", ev.claim_text).strip().replace("|", "\\|")
+            raw_ex = ev.supporting_excerpts[0] if ev.supporting_excerpts else "None"
+            clean_excerpt = re.sub(r"\s+", " ", raw_ex).strip()[:140].replace("|", "\\|") + "..."
             status_badge = f"`{ev.verification_status.value}`"
             src_links = ", ".join([f"[{s}](#source-{s.lower()})" for s in ev.source_ids]) or "None"
             md.append(f"| `{ev.claim_id}` | {status_badge} | {clean_claim} | {src_links} | \"{clean_excerpt}\" |")

@@ -1,8 +1,9 @@
 from __future__ import annotations
 import re
+import os
 import requests
 from bs4 import BeautifulSoup
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -14,11 +15,32 @@ DEFAULT_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+ERROR_PATTERNS = [
+    r"warning:\s*target url returned error 40[0-9]",
+    r"warning:\s*target url returned error 50[0-9]",
+    r"\baccess denied\b",
+    r"you don't have permission to access",
+    r"oops,?\s*something went wrong",
+    r"\b403 forbidden\b",
+    r"\battention required!?\s*\|\s*cloudflare\b",
+    r"please verify you are a human"
+]
+
+NOISE_LINE_PATTERNS = [
+    r"^\[skip to (navigation|main content|right column)\]",
+    r"^#+ (yahoo finance|trending tickers|notifications)",
+    r"^\*?\s*!\[image \d+:.*\]",
+    r"^\[selected edition\]",
+    r"^(october prime day|prime big deal days|gift ideas|shopping guides)",
+    r"^\[(home|news|finance|sports|entertainment|lifestyle|shopping|weather|video)\]\(",
+    r"^\*\s*\[(us|politics|world|tech|science|markets|research|community)\]\("
+]
+
 
 class PageExtractor:
     """
-    Retrieves web page contents, strips boilerplate and markup,
-    and returns sanitized text excerpts with robust error handling.
+    Retrieves web page contents, strips boilerplate, metadata headers,
+    and returns sanitized text excerpts with robust error and noise detection.
     """
     def __init__(self, timeout_seconds: int = 8, max_content_length: int = 10000):
         self.timeout = timeout_seconds
@@ -39,7 +61,6 @@ class PageExtractor:
             }
 
         # 1. Attempt Jina Reader if READER_API_KEY is configured
-        import os
         reader_key = os.getenv("READER_API_KEY")
         if reader_key:
             try:
@@ -49,6 +70,7 @@ class PageExtractor:
             except Exception:
                 pass
 
+        # 2. Fallback to direct HTTP + BeautifulSoup
         try:
             response = requests.get(
                 url,
@@ -58,7 +80,6 @@ class PageExtractor:
             )
             response.raise_for_status()
 
-            # Verify content type is HTML or text
             content_type = response.headers.get("Content-Type", "").lower()
             if "text/html" not in content_type and "text/plain" not in content_type:
                 return {
@@ -83,34 +104,21 @@ class PageExtractor:
             for unwanted in soup(["script", "style", "nav", "footer", "header", "aside", "noscript", "svg", "form"]):
                 unwanted.decompose()
 
-            # Prefer main article or main content tags if present
-            main_element = soup.find("article") or soup.find("main") or soup.find("div", {"id": re.compile(r"content|main", re.I)}) or soup.body
-            
+            main_element = (
+                soup.find("article") or
+                soup.find("main") or
+                soup.find("div", {"id": re.compile(r"content|main", re.I)}) or
+                soup.body
+            )
             raw_text = main_element.get_text(separator="\n", strip=True) if main_element else soup.get_text(separator="\n", strip=True)
 
-            # Clean and normalize whitespace
-            lines = [line.strip() for line in raw_text.splitlines() if len(line.strip()) > 20]
-            clean_text = "\n".join(lines)
-
-            # Truncate to maximum length safely
-            if len(clean_text) > self.max_content_length:
-                clean_text = clean_text[:self.max_content_length] + "\n...[truncated for length]"
-
-            if not clean_text:
-                return {
-                    "url": url,
-                    "title": title or "Untitled Page",
-                    "content": "",
-                    "status": "failed",
-                    "error_message": "Extracted page contained no substantial body text."
-                }
-
+            clean_title, clean_body, status, err = self._sanitize_and_validate(raw_text, title or "Web Article")
             return {
                 "url": url,
-                "title": title or "Web Article",
-                "content": clean_text,
-                "status": "success",
-                "error_message": None
+                "title": clean_title,
+                "content": clean_body,
+                "status": status,
+                "error_message": err
             }
 
         except requests.exceptions.Timeout:
@@ -128,14 +136,6 @@ class PageExtractor:
                 "content": "",
                 "status": "failed",
                 "error_message": f"HTTP Error: {e.response.status_code if e.response else str(e)}"
-            }
-        except requests.exceptions.RequestException as e:
-            return {
-                "url": url,
-                "title": "",
-                "content": "",
-                "status": "failed",
-                "error_message": f"Network error: {str(e)}"
             }
         except Exception as e:
             return {
@@ -155,22 +155,73 @@ class PageExtractor:
         }
         resp = requests.get(jina_url, headers=headers, timeout=self.timeout)
         if resp.status_code == 200 and resp.text:
-            text = resp.text
-            # Extract title if present in Jina output (e.g. Title: ...)
-            title = ""
-            title_match = re.search(r"Title:\s*(.+)", text)
-            if title_match:
-                title = title_match.group(1).strip()
+            raw_text = resp.text
             
-            clean_content = text
-            if len(clean_content) > self.max_content_length:
-                clean_content = clean_content[:self.max_content_length] + "\n...[truncated for length]"
+            # Extract title if present in Jina header
+            parsed_title = ""
+            title_match = re.search(r"^Title:\s*(.+)$", raw_text, re.MULTILINE)
+            if title_match:
+                parsed_title = title_match.group(1).strip()
 
+            clean_title, clean_body, status, err = self._sanitize_and_validate(raw_text, parsed_title or "Web Article")
             return {
                 "url": url,
-                "title": title or "Web Article",
-                "content": clean_content,
-                "status": "success",
-                "error_message": None
+                "title": clean_title,
+                "content": clean_body,
+                "status": status,
+                "error_message": err
             }
         return None
+
+    def _sanitize_and_validate(self, raw_text: str, default_title: str) -> Tuple[str, str, str, Optional[str]]:
+        """
+        Strips Jina metadata headers, detects 403/Forbidden error pages,
+        and removes boilerplate navigation noise.
+        """
+        if not raw_text or len(raw_text.strip()) < 40:
+            return default_title, "", "failed", "Empty or negligible body content."
+
+        first_chunk = raw_text[:800].lower()
+        for err_pat in ERROR_PATTERNS:
+            if re.search(err_pat, first_chunk):
+                return default_title, "", "failed", "Page returned error/access denied (e.g., 403 Forbidden or captcha)."
+
+        clean_lines = []
+        in_content = False
+
+        for line in raw_text.splitlines():
+            s_line = line.strip()
+            if not s_line:
+                continue
+
+            # Strip Jina Reader header block
+            if re.match(r"^(Title:|URL Source:|Published Time:|Warning:)\s*", s_line):
+                continue
+            if s_line == "Markdown Content:":
+                in_content = True
+                continue
+
+            # Check noise line patterns
+            if any(re.search(pat, s_line, re.IGNORECASE) for pat in NOISE_LINE_PATTERNS):
+                continue
+
+            # Skip lines that are just ticker price changes or navigational markers
+            if re.match(r"^[A-Z]{2,5}\s+\d+\.\d+\s+\([+-]?\d+\.\d+%\)$", s_line):
+                continue
+            if re.match(r"^\d+\.\s*$", s_line):
+                continue
+
+            # Keep substantive lines
+            if len(s_line) > 25 or s_line.startswith("#"):
+                clean_lines.append(s_line)
+
+        clean_body = "\n\n".join(clean_lines).strip()
+
+        # Final sanity check: if the remaining body is too short or lacks substantive sentences
+        if len(clean_body) < 80:
+            return default_title, "", "failed", "Content was mostly navigation or boilerplate."
+
+        if len(clean_body) > self.max_content_length:
+            clean_body = clean_body[:self.max_content_length] + "\n...[truncated for length]"
+
+        return default_title, clean_body, "success", None
