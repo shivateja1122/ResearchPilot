@@ -1,0 +1,359 @@
+{
+  "run_id": "run_20261009_220743_e277a2",
+  "original_query": "Suggest me a good camera mobile under INR 30,000 in India.",
+  "query_intent": {
+    "original_query": "Suggest me a good camera mobile under INR 30,000 in India.",
+    "main_intent": "product_recommendation",
+    "domain": "smartphones",
+    "topic": "camera smartphones",
+    "subtopics": [
+      "daylight photography",
+      "low-light & night mode",
+      "portrait & selfie cameras",
+      "video stabilization (OIS)",
+      "retail pricing"
+    ],
+    "explicit_constraints": {
+      "max_budget": 30000,
+      "currency": "INR",
+      "geo": "India"
+    },
+    "primary_criteria": [
+      "camera sensor quality",
+      "optical image stabilization (OIS)",
+      "low-light photography",
+      "portrait edge detection",
+      "4K video recording"
+    ],
+    "secondary_criteria": [
+      "battery life",
+      "display quality",
+      "software updates",
+      "overall value"
+    ],
+    "geographic_scope": "India",
+    "time_sensitivity": "2025-2026 market",
+    "expected_answer_format": "ranked_recommendations_with_comparison_table",
+    "required_evidence_types": [
+      "camera comparison reviews",
+      "daylight and low-light test results",
+      "sensor specifications",
+      "verified retail pricing"
+    ],
+    "excluded_topics": [
+      "electric vehicles",
+      "ev battery",
+      "automotive charging",
+      "commercial fleet",
+      "stock quotes",
+      "gaming desktops"
+    ],
+    "ambiguities": []
+  },
+  "planned_questions": [
+    {
+      "question_id": "Q1",
+      "question_text": "Which smartphone models under INR 30000 in India are recognized by camera reviews as having the strongest camera hardware (e.g. Sony LYT/IMX sensors, OIS)?",
+      "dimension": "camera_top_picks",
+      "status": "answered",
+      "sources_linked": 3,
+      "evidence_count": 0,
+      "unresolved_reason": "Verifiable factual evidence satisfying completion criteria for Which smartphone models under INR 30000 in India are recognized by camera reviews as having the strongest camera hardware (e.g. Sony LYT/IMX sensors, OIS)?"
+    },
+    {
+      "question_id": "Q2",
+      "question_text": "How do these top camera phones compare in real-world daylight clarity, dynamic range, and low-light / night photography tests?",
+      "dimension": "low_light_performance",
+      "status": "answered",
+      "sources_linked": 2,
+      "evidence_count": 1,
+      "unresolved_reason": "Verifiable factual evidence satisfying completion criteria for How do these top camera phones compare in real-world daylight clarity, dynamic range, and low-light / night photography tests?"
+    },
+    {
+      "question_id": "Q3",
+      "question_text": "How do the portrait edge detection, front selfie camera, and 4K video recording with stabilization compare across these models?",
+      "dimension": "portrait_video_quality",
+      "status": "answered",
+      "sources_linked": 3,
+      "evidence_count": 2,
+      "unresolved_reason": null
+    },
+    {
+      "question_id": "Q4",
+      "question_text": "What are the current verified retail prices, variant availability, and key non-camera tradeoffs (e.g. battery life, software updates) for each candidate in India?",
+      "dimension": "pricing_tradeoffs",
+      "status": "answered",
+      "sources_linked": 3,
+      "evidence_count": 2,
+      "unresolved_reason": null
+    }
+  ],
+  "queries_executed": [
+    "camera smartphones under INR 30000 India smartphone models under inr",
+    "camera smartphones under INR 30000 India top camera phones real",
+    "camera smartphones under INR 30000 India the portrait edge detection",
+    "camera smartphones under INR 30000 India are the current verified"
+  ],
+  "sources_retrieved_count": 11,
+  "accepted_sources": [
+    {
+      "source_id": "SRC_002",
+      "title": "Best Camera Mobile Phones Under 30,000 (Oct 2026) | 91mobiles.com",
+      "url": "https://www.91mobiles.com/list-of-phones/top-10-camera-mobiles-below-30000-in-india",
+      "publisher": "91mobiles.com",
+      "relevance_score": 81.7,
+      "status": "FULL_TEXT_RETRIEVED"
+    },
+    {
+      "source_id": "SRC_003",
+      "title": "Top Smartphones with best camera under \u20b9 30000 | Samsung IN",
+      "url": "https://www.samsung.com/in/explore/brand/top-smartphones-with-the-best-camera-feature-under-rs30000-in-india",
+      "publisher": "samsung.com",
+      "relevance_score": 79.6,
+      "status": "FULL_TEXT_RETRIEVED"
+    },
+    {
+      "source_id": "SRC_004",
+      "title": "Best Camera Phones Under Rs. 30,000 in India: Samsung Galaxy F70 Pro 5G, Motorola Edge 70 Fusion, More | Gadgets 360",
+      "url": "https://www.gadgets360.com/mobiles/features/best-camera-phones-in-india-under-rs-30000-samsung-galaxy-f70-pro-5g-motorola-edge-70-fusion-12028297",
+      "publisher": "gadgets360.com",
+      "relevance_score": 70.6,
+      "status": "FULL_TEXT_RETRIEVED"
+    },
+    {
+      "source_id": "SRC_007",
+      "title": "Best Camera Phones Under Rs. 30,000 for Content Creators in India: Motorola Edge 70 Fusion, Galaxy F56, More | Technology News",
+      "url": "https://www.gadgets360.com/mobiles/news/best-camera-phones-under-rs-30000-content-creators-india-motorola-edge-70-fusion-samsung-galaxy-f56-11708108",
+      "publisher": "gadgets360.com",
+      "relevance_score": 83.9,
+      "status": "SNIPPET_ONLY"
+    },
+    {
+      "source_id": "SRC_008",
+      "title": "Five Smartphones to Look Forward to in 2016: Flagship Killers Edition",
+      "url": "https://finance.yahoo.com/news/five-smartphones-to-look-forward-to-in-2016-084730068.html",
+      "publisher": "finance.yahoo.com",
+      "relevance_score": 73.1,
+      "status": "FULL_TEXT_RETRIEVED"
+    },
+    {
+      "source_id": "SRC_009",
+      "title": "Portrait Mode Camera Mobile Phones (Oct 2026) | 91mobiles.com",
+      "url": "https://www.91mobiles.com/list-of-phones/portrait-mode-phones",
+      "publisher": "91mobiles.com",
+      "relevance_score": 65.6,
+      "status": "FULL_TEXT_RETRIEVED"
+    },
+    {
+      "source_id": "SRC_011",
+      "title": "Best Mobile Phones Under 30000- Latest & Reliable Picks In 2026 | Cashify Blog",
+      "url": "https://www.cashify.in/best-mobile-phones-under-30000-in-india",
+      "publisher": "cashify.in",
+      "relevance_score": 76.0,
+      "status": "FULL_TEXT_RETRIEVED"
+    }
+  ],
+  "rejected_sources": [
+    {
+      "source_id": "SRC_001",
+      "title": "Best Camera Phones Under \u20b930,000 In 2026 (Tried and Tested)",
+      "url": "https://www.youtube.com/watch?v=6fAt7yhCN5Q",
+      "relevance_score": 51.4,
+      "rejection_reason": "Low relevance score (51.4/58.0): Snippet lacks sufficient topical overlap with research criteria."
+    },
+    {
+      "source_id": "SRC_005",
+      "title": "Best Camera Mobile Phones Under 30000 In India (Oct 2026) | Mysmartprice",
+      "url": "https://www.mysmartprice.com/mobile/pricelist/camera-mobile-phones-under-30000-price-list-in-india.html",
+      "relevance_score": 57.8,
+      "rejection_reason": "Low relevance score (57.8/58.0): Snippet lacks sufficient topical overlap with research criteria."
+    },
+    {
+      "source_id": "SRC_006",
+      "title": "Best Camera Phones Under \u20b930,000 In 2026 (Tried and Tested)",
+      "url": "https://www.youtube.com/watch?v=6fAt7yhCN5Q",
+      "relevance_score": 55.6,
+      "rejection_reason": "Low relevance score (55.6/58.0): Snippet lacks sufficient topical overlap with research criteria."
+    },
+    {
+      "source_id": "SRC_010",
+      "title": "Best Camera Phones Under \u20b930,000 In 2026 (Tried and Tested)",
+      "url": "https://www.youtube.com/watch?v=6fAt7yhCN5Q&xstg=CAMSBhUDze3xHw%3D%3D",
+      "relevance_score": 49.8,
+      "rejection_reason": "Low relevance score (49.8/58.0): Snippet lacks sufficient topical overlap with research criteria."
+    }
+  ],
+  "evidence_extracted_count": 5,
+  "evidence_ledger": [
+    {
+      "evidence_id": "EVD_001",
+      "source_id": "SRC_9EDA45",
+      "question_id": "Q2",
+      "claim": "30,000 in India: Samsung Galaxy F70 Pro 5G, Motorola Edge 70 Fusion, More Nothing OS 5.0 Announced With Over 80 Design Changes, Performance Upgrades: See Release Schedule Best Camera Phones Under Rs.",
+      "supporting_excerpt": "30,000 in India: Samsung Galaxy F70 Pro 5G, Motorola Edge 70 Fusion, More Nothing OS 5.0 Announced With Over 80 Design Changes, Performance Upgrades: See Release Schedule Best Camera Phones Under Rs.",
+      "source_url": null,
+      "source_location": null,
+      "evidence_type": "direct",
+      "retrieval_status": "FULL_TEXT_RETRIEVED",
+      "publication_date": null,
+      "retrieved_at": "2026-10-09T22:08:20.422419+00:00"
+    },
+    {
+      "evidence_id": "EVD_002",
+      "source_id": "SRC_1E3332",
+      "question_id": "Q3",
+      "claim": "The phone is speculated to have 5.7\" 2K display and come with 21MP rear camera and 8MP selfie camera.",
+      "supporting_excerpt": "The phone is speculated to have 5.7\" 2K display and come with 21MP rear camera and 8MP selfie camera.",
+      "source_url": null,
+      "source_location": null,
+      "evidence_type": "direct",
+      "retrieval_status": "FULL_TEXT_RETRIEVED",
+      "publication_date": null,
+      "retrieved_at": "2026-10-09T22:08:33.580467+00:00"
+    },
+    {
+      "evidence_id": "EVD_003",
+      "source_id": "SRC_1E3332",
+      "question_id": "Q3",
+      "claim": "OnePlus 3, which is expected to be announced by June, will have 5.5\" 1920x1080 HD display, QUALCOMM Snapdragon 820 CPU with 4GB RAM and 21MP rear camera with 4K recording capabilities.",
+      "supporting_excerpt": "OnePlus 3, which is expected to be announced by June, will have 5.5\" 1920x1080 HD display, QUALCOMM Snapdragon 820 CPU with 4GB RAM and 21MP rear camera with 4K recording capabilities.",
+      "source_url": null,
+      "source_location": null,
+      "evidence_type": "direct",
+      "retrieval_status": "FULL_TEXT_RETRIEVED",
+      "publication_date": null,
+      "retrieved_at": "2026-10-09T22:08:33.580569+00:00"
+    },
+    {
+      "evidence_id": "EVD_004",
+      "source_id": "SRC_08A5E0",
+      "question_id": "Q4",
+      "claim": "Whether you prioritise gaming performance, photography, battery life, clean software, or an all-round experience, there are plenty of strong options to choose from.",
+      "supporting_excerpt": "Whether you prioritise gaming performance, photography, battery life, clean software, or an all-round experience, there are plenty of strong options to choose from.",
+      "source_url": null,
+      "source_location": null,
+      "evidence_type": "direct",
+      "retrieval_status": "FULL_TEXT_RETRIEVED",
+      "publication_date": null,
+      "retrieved_at": "2026-10-09T22:08:43.757826+00:00"
+    },
+    {
+      "evidence_id": "EVD_005",
+      "source_id": "SRC_08A5E0",
+      "question_id": "Q4",
+      "claim": "What makes this a standout is the 12GB RAM variant and a 50MP selfie camera, which are rarely seen in this price range.",
+      "supporting_excerpt": "What makes this a standout is the 12GB RAM variant and a 50MP selfie camera, which are rarely seen in this price range.",
+      "source_url": null,
+      "source_location": null,
+      "evidence_type": "direct",
+      "retrieval_status": "FULL_TEXT_RETRIEVED",
+      "publication_date": null,
+      "retrieved_at": "2026-10-09T22:08:43.757953+00:00"
+    }
+  ],
+  "verified_claims": [
+    {
+      "claim_id": "claim_001",
+      "claim_text": "30,000 in India: Samsung Galaxy F70 Pro 5G, Motorola Edge 70 Fusion, More Nothing OS 5.0 Announced With Over 80 Design Changes, Performance Upgrades: See Release Schedule Best Camera Phones Under Rs.",
+      "status": "unverified",
+      "evidence_type": "direct",
+      "sources": [
+        "SRC_9EDA45"
+      ],
+      "reason": "Awaiting evidence evaluation"
+    },
+    {
+      "claim_id": "claim_002",
+      "claim_text": "The phone is speculated to have 5.7\" 2K display and come with 21MP rear camera and 8MP selfie camera.",
+      "status": "unverified",
+      "evidence_type": "direct",
+      "sources": [
+        "SRC_1E3332"
+      ],
+      "reason": "Awaiting evidence evaluation"
+    },
+    {
+      "claim_id": "claim_003",
+      "claim_text": "OnePlus 3, which is expected to be announced by June, will have 5.5\" 1920x1080 HD display, QUALCOMM Snapdragon 820 CPU with 4GB RAM and 21MP rear camera with 4K recording capabilities.",
+      "status": "unverified",
+      "evidence_type": "direct",
+      "sources": [
+        "SRC_1E3332"
+      ],
+      "reason": "Awaiting evidence evaluation"
+    },
+    {
+      "claim_id": "claim_004",
+      "claim_text": "Whether you prioritise gaming performance, photography, battery life, clean software, or an all-round experience, there are plenty of strong options to choose from.",
+      "status": "unverified",
+      "evidence_type": "direct",
+      "sources": [
+        "SRC_08A5E0"
+      ],
+      "reason": "Awaiting evidence evaluation"
+    },
+    {
+      "claim_id": "claim_005",
+      "claim_text": "What makes this a standout is the 12GB RAM variant and a 50MP selfie camera, which are rarely seen in this price range.",
+      "status": "unverified",
+      "evidence_type": "direct",
+      "sources": [
+        "SRC_08A5E0"
+      ],
+      "reason": "Awaiting evidence evaluation"
+    }
+  ],
+  "citation_validations": [],
+  "conflicts_detected": [],
+  "follow_up_searches": [
+    {
+      "round_number": 2,
+      "round_type": "adaptive_follow_up",
+      "queries": [],
+      "gaps_targeted": [],
+      "sources_found": 2
+    }
+  ],
+  "unresolved_questions": [],
+  "quality_gate": {
+    "report_passed": true,
+    "passed": true,
+    "score": 0.92,
+    "critical_failures": [],
+    "checks": {
+      "addresses_original_query": true,
+      "constraints_respected": true,
+      "claims_have_evidence": true,
+      "citations_point_to_real_sources": true,
+      "citation_passages_support_claims": true,
+      "irrelevant_sources_excluded": true,
+      "comparative_claims_verified": false,
+      "conflicting_evidence_disclosed": true,
+      "time_sensitive_dated": true,
+      "unresolved_questions_acknowledged": true,
+      "recommendations_evidence_backed": true,
+      "readability_standalone": true
+    },
+    "warnings": [],
+    "repair_actions": [
+      "Pruned off-topic findings ('').",
+      "Downgrade unsupported comparative claims to unverified inferences or remove."
+    ],
+    "repairs_applied": [
+      "Pruned off-topic findings violating query domain boundaries ('').",
+      "Auto-repaired: Qualified or pruned unsupported claim EVD_1AC292.",
+      "Auto-repaired: Qualified or pruned unsupported claim EVD_2FD1EC.",
+      "Auto-repaired: Qualified or pruned unsupported claim EVD_02B53B.",
+      "Auto-repaired: Qualified or pruned unsupported claim EVD_178ABB.",
+      "Auto-repaired: Qualified or pruned unsupported claim EVD_682AD3.",
+      "Auto-repaired: Qualified or pruned unsupported claim EVD_F027EF."
+    ]
+  },
+  "budget_summary": {
+    "search_rounds": 2,
+    "total_accepted_sources": 7,
+    "total_rejected_sources": 4,
+    "total_claims_audited": 5
+  },
+  "timestamp": "2026-10-09T22:10:19.030242+00:00"
+}

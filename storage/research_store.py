@@ -7,14 +7,15 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from models.schemas import (
     ResearchRun, ResearchPlan, ResearchQuestion, Source,
-    Evidence, SearchRound, FinalReport, CoverageStatus, VerificationStatus
+    Evidence, SearchRound, FinalReport, CoverageStatus, VerificationStatus,
+    QueryIntent, QualityGateResult, ResearchAudit
 )
 
 
 class ResearchStore:
     """
     Thread-safe in-memory store for managing research runs, sources,
-    evidence, coverage states, and report outputs.
+    evidence, coverage states, report outputs, and audit logs.
     """
     def __init__(self):
         self._lock = threading.RLock()
@@ -24,15 +25,10 @@ class ResearchStore:
 
     @staticmethod
     def normalize_url(url: str) -> str:
-        """
-        Normalize URL by removing tracking query parameters (utm_*, ref, etc.),
-        lowercasing host, and stripping trailing slash.
-        """
         if not url:
             return ""
         try:
             parsed = urlparse(url.strip())
-            # Lowercase scheme and netloc
             scheme = parsed.scheme.lower() or "https"
             netloc = parsed.netloc.lower()
             if netloc.startswith("www."):
@@ -42,7 +38,6 @@ class ResearchStore:
             if not path:
                 path = "/"
 
-            # Filter out tracking query parameters
             tracking_params = {
                 "utm_source", "utm_medium", "utm_campaign", "utm_term",
                 "utm_content", "ref", "fbclid", "gclid", "msclkid", "source"
@@ -78,6 +73,14 @@ class ResearchStore:
                 return None
             return self._runs.get(target_id)
 
+    def set_query_intent(self, intent: QueryIntent, run_id: Optional[str] = None) -> None:
+        with self._lock:
+            run = self.get_run(run_id)
+            if not run:
+                raise ValueError("No active research run found.")
+            run.query_intent = intent
+            self.log_event("query_analysis", f"Analyzed query intent: {intent.main_intent} | Domain: {intent.domain}", run_id=run.run_id)
+
     def set_plan(self, plan: ResearchPlan, run_id: Optional[str] = None) -> None:
         with self._lock:
             run = self.get_run(run_id)
@@ -97,12 +100,14 @@ class ResearchStore:
         publication_date: Optional[str] = None,
         retrieval_status: str = "success",
         error_message: Optional[str] = None,
+        source_type: str = "web_article",
+        relevance_score: float = 80.0,
+        credibility_assessment: str = "standard",
+        accepted: bool = True,
+        rejection_reason: Optional[str] = None,
         question_id: Optional[str] = None,
         run_id: Optional[str] = None
     ) -> Source:
-        """
-        Deduplicates sources using normalized URLs and preserves stable source IDs.
-        """
         with self._lock:
             run = self.get_run(run_id)
             if not run:
@@ -111,28 +116,26 @@ class ResearchStore:
             norm_url = self.normalize_url(url)
             run_url_map = self._url_to_source_id[run.run_id]
 
-            # Check if source already exists
-            if norm_url and norm_url in run_url_map:
-                existing_id = run_url_map[norm_url]
-                source = run.sources[existing_id]
-                # Update content if existing had no content and new has content
-                if extracted_content and not source.extracted_content:
-                    source.extracted_content = extracted_content
-                    source.retrieval_status = retrieval_status
-                if question_id:
-                    self._link_source_to_question(run, question_id, source.source_id)
-                return source
-
-            # Create new source
-            count = len(run.sources) + 1
-            source_id = f"SRC_{count:03d}"
-            
-            # Extract publisher from domain if not provided
             if not publisher and url:
                 try:
                     publisher = urlparse(url).netloc.replace("www.", "")
                 except Exception:
                     publisher = "Web Source"
+
+            # Check if source already exists
+            if norm_url and norm_url in run_url_map:
+                existing_id = run_url_map[norm_url]
+                source = run.sources.get(existing_id) or run.rejected_sources.get(existing_id)
+                if source:
+                    if extracted_content and not source.extracted_content:
+                        source.extracted_content = extracted_content
+                        source.retrieval_status = retrieval_status
+                    if question_id:
+                        self._link_source_to_question(run, question_id, source.source_id)
+                    return source
+
+            count = len(run.sources) + len(run.rejected_sources) + 1
+            source_id = f"SRC_{count:03d}"
 
             source = Source(
                 source_id=source_id,
@@ -140,24 +143,60 @@ class ResearchStore:
                 url=url.strip(),
                 publisher=publisher,
                 publication_date=publication_date,
+                published_at=publication_date,
                 snippet=snippet.strip(),
                 extracted_content=extracted_content.strip(),
                 retrieval_status=retrieval_status,
                 error_message=error_message,
+                source_type=source_type,
+                relevance_score=relevance_score,
+                credibility_assessment=credibility_assessment,
+                accepted=accepted,
+                rejection_reason=rejection_reason,
+                relevant_questions=[question_id] if question_id else []
             )
-            run.sources[source_id] = source
-            if norm_url:
-                run_url_map[norm_url] = source_id
 
-            if question_id:
-                self._link_source_to_question(run, question_id, source.source_id)
+            if accepted:
+                run.sources[source_id] = source
+                if norm_url:
+                    run_url_map[norm_url] = source_id
+                if question_id:
+                    self._link_source_to_question(run, question_id, source.source_id)
+                self.log_event(
+                    "source_collection",
+                    f"Accepted source [{source_id}] '{source.title[:50]}' (Rel: {relevance_score}/100)",
+                    run_id=run.run_id
+                )
+            else:
+                run.rejected_sources[source_id] = source
+                self.log_event(
+                    "source_rejection",
+                    f"Rejected source [{source_id}] '{source.title[:50]}': {rejection_reason}",
+                    run_id=run.run_id
+                )
 
-            self.log_event(
-                "source_collection",
-                f"Stored source [{source_id}] '{source.title[:60]}' ({retrieval_status})",
-                run_id=run.run_id
-            )
             return source
+
+    def add_rejected_source(
+        self,
+        title: str,
+        url: str,
+        snippet: str = "",
+        relevance_score: float = 20.0,
+        rejection_reason: str = "Off-topic or low relevance",
+        question_id: Optional[str] = None,
+        run_id: Optional[str] = None
+    ) -> Source:
+        return self.add_source(
+            title=title,
+            url=url,
+            snippet=snippet,
+            relevance_score=relevance_score,
+            accepted=False,
+            rejection_reason=rejection_reason,
+            question_id=question_id,
+            run_id=run_id
+        )
 
     def _link_source_to_question(self, run: ResearchRun, question_id: str, source_id: str):
         if run.research_plan:
@@ -175,6 +214,8 @@ class ResearchStore:
         supporting_excerpts: List[str],
         verification_status: VerificationStatus = VerificationStatus.UNVERIFIED,
         verification_reason: str = "Awaiting evidence evaluation",
+        evidence_type: str = "direct",
+        extraction_confidence: float = 0.88,
         run_id: Optional[str] = None
     ) -> Evidence:
         with self._lock:
@@ -182,15 +223,39 @@ class ResearchStore:
             if not run:
                 raise ValueError("No active research run found.")
 
+            clean_claim = re.sub(r"\s+", " ", claim_text).strip()
+            norm_new = re.sub(r"[^\w\s]", "", clean_claim.lower()).strip()
+
+            # Deduplicate against existing claims in this run
+            for existing_ev in run.evidence_records.values():
+                norm_existing = re.sub(r"[^\w\s]", "", existing_ev.claim_text.lower()).strip()
+                if norm_new == norm_existing:
+                    for sid in source_ids:
+                        if sid not in existing_ev.source_ids:
+                            existing_ev.source_ids.append(sid)
+                    if run.research_plan:
+                        for q in run.research_plan.subquestions:
+                            if q.question_id == question_id and existing_ev.claim_id not in q.evidence_ids:
+                                q.evidence_ids.append(existing_ev.claim_id)
+                    return existing_ev
+
             count = len(run.evidence_records) + 1
             claim_id = f"claim_{count:03d}"
+            ev_id = f"EVD_{count:03d}"
 
             evidence = Evidence(
                 claim_id=claim_id,
-                claim_text=claim_text.strip(),
+                evidence_id=ev_id,
+                claim_text=clean_claim,
+                claim=clean_claim,
                 question_id=question_id,
+                research_question_id=question_id,
                 source_ids=source_ids,
+                source_id=source_ids[0] if source_ids else None,
                 supporting_excerpts=supporting_excerpts,
+                supporting_excerpt=supporting_excerpts[0] if supporting_excerpts else None,
+                evidence_type=evidence_type,
+                extraction_confidence=extraction_confidence,
                 verification_status=verification_status,
                 verification_reason=verification_reason.strip()
             )
@@ -206,7 +271,7 @@ class ResearchStore:
 
             self.log_event(
                 "evidence_verification",
-                f"Evaluated [{claim_id}]: {verification_status.value} - '{claim_text[:60]}...'",
+                f"Evaluated [{claim_id}]: {verification_status.value} - '{clean_claim[:60]}...'",
                 run_id=run.run_id
             )
             return evidence
@@ -215,6 +280,7 @@ class ResearchStore:
         self,
         question_id: str,
         status: CoverageStatus,
+        confidence: float = 0.0,
         unresolved_reason: Optional[str] = None,
         run_id: Optional[str] = None
     ) -> None:
@@ -226,6 +292,8 @@ class ResearchStore:
                 if q.question_id == question_id:
                     old_status = q.status
                     q.status = status
+                    if confidence > 0.0:
+                        q.confidence = confidence
                     if unresolved_reason:
                         q.unresolved_reason = unresolved_reason
                     self.log_event(
@@ -258,6 +326,45 @@ class ResearchStore:
             run.completed_at = datetime.now(timezone.utc).isoformat()
             self.log_event("reporting", "Final research report successfully generated and saved.", run_id=run.run_id)
 
+    def set_research_audit(self, audit: ResearchAudit, run_id: Optional[str] = None) -> None:
+        with self._lock:
+            run = self.get_run(run_id)
+            if not run:
+                return
+            run.research_audit = audit
+            self.log_event("audit", f"Research audit log finalized ({len(audit.accepted_sources)} accepted, {len(audit.rejected_sources)} rejected).", run_id=run.run_id)
+
+    def add_citation_validation(self, val: Any, run_id: Optional[str] = None) -> None:
+        with self._lock:
+            run = self.get_run(run_id)
+            if not run:
+                return
+            run.citation_validations[val.citation_id] = val
+            self.log_event("citation_validation", f"Validated citation [{val.citation_id}]: {val.citation_status.value}", run_id=run.run_id)
+
+    def add_contradiction(self, conflict: Any, run_id: Optional[str] = None) -> None:
+        with self._lock:
+            run = self.get_run(run_id)
+            if not run:
+                return
+            run.contradictions.append(conflict)
+            self.log_event("contradiction_detected", f"Recorded conflict [{conflict.conflict_id}]: {conflict.disagreement_description[:60]}", run_id=run.run_id)
+
+    def get_evidence_ledger(self, run_id: Optional[str] = None) -> List[Evidence]:
+        with self._lock:
+            run = self.get_run(run_id)
+            if not run:
+                return []
+            return list(run.evidence_records.values())
+
+    def set_quality_gate(self, qg: QualityGateResult, run_id: Optional[str] = None) -> None:
+        with self._lock:
+            run = self.get_run(run_id)
+            if not run:
+                return
+            run.quality_gate_result = qg
+            self.log_event("quality_gate", f"Quality gate passed: {qg.passed} (Score: {qg.score})", run_id=run.run_id)
+
     def log_event(
         self,
         stage: str,
@@ -289,21 +396,15 @@ class ResearchStore:
             supported_count = 0
             partial_count = 0
             unresolved_count = 0
-            researching_count = 0
-            not_started_count = 0
 
             if run.research_plan:
                 for q in run.research_plan.subquestions:
-                    if q.status == CoverageStatus.SUPPORTED:
+                    if q.status in (CoverageStatus.SUPPORTED, CoverageStatus.ANSWERED):
                         supported_count += 1
-                    elif q.status == CoverageStatus.PARTIAL:
+                    elif q.status in (CoverageStatus.PARTIAL, CoverageStatus.PARTIALLY_ANSWERED):
                         partial_count += 1
-                    elif q.status == CoverageStatus.UNRESOLVED:
+                    elif q.status in (CoverageStatus.UNRESOLVED, CoverageStatus.UNANSWERED, CoverageStatus.BLOCKED):
                         unresolved_count += 1
-                    elif q.status == CoverageStatus.RESEARCHING:
-                        researching_count += 1
-                    elif q.status == CoverageStatus.NOT_STARTED:
-                        not_started_count += 1
 
             total_claims = len(run.evidence_records)
             claim_status_counts = {
@@ -324,6 +425,7 @@ class ResearchStore:
                 "partial_subquestions": partial_count,
                 "unresolved_subquestions": unresolved_count,
                 "total_sources": len(run.sources),
+                "rejected_sources_count": len(run.rejected_sources),
                 "total_claims": total_claims,
                 "claim_statuses": claim_status_counts,
                 "search_rounds_count": len(run.search_rounds),

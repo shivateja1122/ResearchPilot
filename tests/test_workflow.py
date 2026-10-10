@@ -125,7 +125,7 @@ def test_fr04_and_fr05_coverage_tracker_and_adaptive_loop():
     
     # Check coverage status exists on every subquestion
     for q in run.research_plan.subquestions:
-        assert q.status in [CoverageStatus.SUPPORTED, CoverageStatus.PARTIAL, CoverageStatus.UNRESOLVED]
+        assert q.status in [CoverageStatus.SUPPORTED, CoverageStatus.PARTIAL, CoverageStatus.UNRESOLVED, CoverageStatus.ANSWERED, CoverageStatus.PARTIALLY_ANSWERED, CoverageStatus.UNANSWERED]
     
     # Verify final report was generated
     assert run.final_report is not None

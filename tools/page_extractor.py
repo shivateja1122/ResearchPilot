@@ -33,7 +33,13 @@ NOISE_LINE_PATTERNS = [
     r"^\[selected edition\]",
     r"^(october prime day|prime big deal days|gift ideas|shopping guides)",
     r"^\[(home|news|finance|sports|entertainment|lifestyle|shopping|weather|video)\]\(",
-    r"^\*\s*\[(us|politics|world|tech|science|markets|research|community)\]\("
+    r"^\*\s*\[(us|politics|world|tech|science|markets|research|community)\]\(",
+    r"(cookie (policy|consent|settings)|privacy policy|terms of (service|use)|all rights reserved)",
+    r"(affiliate disclosure|when you purchase through links|may earn an affiliate commission)",
+    r"^(\*|\-)?\s*\[?(phone finder|compare mobiles|add to compare|view photos|user reviews|read full review|check price)\]?",
+    r"^(sign up|subscribe|newsletter|follow us on|advertisement|sponsored content)\b",
+    r"^\[(compare|specs|deals|reviews|price in india|buy now)\]\(",
+    r"^\*\s*\[\d+\.\s*$",
 ]
 
 
@@ -205,11 +211,29 @@ class PageExtractor:
             if any(re.search(pat, s_line, re.IGNORECASE) for pat in NOISE_LINE_PATTERNS):
                 continue
 
-            # Skip lines that are just ticker price changes or navigational markers
+            # Skip table separator lines e.g. |---|---| or |:---|:---|
+            if re.match(r"^\|?[\s\-:|]+\|?$", s_line) and "-" in s_line:
+                continue
+
+            # Skip lines that are just dividers, ticker price changes, or empty list numbering
+            if re.match(r"^[-=_*~]{3,}$", s_line):
+                continue
             if re.match(r"^[A-Z]{2,5}\s+\d+\.\d+\s+\([+-]?\d+\.\d+%\)$", s_line):
                 continue
-            if re.match(r"^\d+\.\s*$", s_line):
+            if re.match(r"^\*?\s*\[?\d+\.\]?\s*$", s_line):
                 continue
+
+            # Convert markdown links [Anchor Text](http...) to just Anchor Text
+            s_line = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", s_line)
+
+            # Convert markdown table rows into clean key-value text lines
+            if s_line.startswith("|") and s_line.endswith("|"):
+                cols = [c.strip() for c in s_line.strip("|").split("|") if c.strip()]
+                if cols:
+                    s_line = " — ".join(cols)
+
+            # Strip dangling orphan brackets from broken links/buttons
+            s_line = re.sub(r"\[(view photos|add to compare|compare|read more|buy now)\]", "", s_line, flags=re.IGNORECASE).strip()
 
             # Keep substantive lines
             if len(s_line) > 25 or s_line.startswith("#"):
